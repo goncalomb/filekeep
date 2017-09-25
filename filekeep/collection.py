@@ -39,6 +39,11 @@ class File:
         el.set("sha1", self.sha1)
         return el
 
+    def print_sha1sum(self, rel):
+        if rel:
+            rel += "/"
+        print(self.sha1 + " *" + rel + self.name)
+
 class Directory:
     @staticmethod
     def from_file(path):
@@ -78,6 +83,14 @@ class Directory:
             else:
                 s += e.size()
         return s
+
+    def print_sha1sum(self, rel):
+        if rel:
+            rel += "/"
+        if self.name:
+            rel += self.name
+        for e in self.entries.values():
+            e.print_sha1sum(rel)
 
 class Collection:
     def __init__(self, path):
@@ -120,3 +133,6 @@ class Collection:
             for filename in filenames:
                 path = os.path.join(dirpath, filename)
                 d.entries[filename] = File.from_file(path, True)
+
+    def print_sha1sum(self):
+        self.directory.print_sha1sum("")

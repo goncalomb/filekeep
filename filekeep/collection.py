@@ -1,4 +1,4 @@
-import os, hashlib
+import os, hashlib, collections
 from filekeep import xml
 
 def sha1_file(path):
@@ -15,6 +15,7 @@ class File:
     @staticmethod
     def from_file(path, calculate_sha1=False):
         f = File(os.path.basename(path), os.path.getsize(path), os.path.getmtime(path))
+        f.path = path
         if calculate_sha1:
             f.sha1 = sha1_file(path)
         return f
@@ -26,6 +27,7 @@ class File:
         return f
 
     def __init__(self, name, size, mtime):
+        self.path = None
         self.name = name
         self.size = size
         self.mtime = mtime
@@ -47,7 +49,9 @@ class File:
 class Directory:
     @staticmethod
     def from_file(path):
-        return Directory(os.path.basename(path), os.path.getmtime(path))
+        d = Directory(os.path.basename(path), os.path.getmtime(path))
+        d.path = path
+        return d
 
     @staticmethod
     def from_xml(el):
@@ -62,9 +66,10 @@ class Directory:
         return d
 
     def __init__(self, name=None, mtime=0):
+        self.path = None
         self.name = name
         self.mtime = mtime
-        self.entries = {}
+        self.entries = collections.OrderedDict()
 
     def to_xml(self):
         el = xml.ET.Element("directory")
@@ -103,7 +108,7 @@ class Collection:
             self.directory = Directory.from_xml(root.find("directory"))
             self.exists = True
         else:
-            self.name = "FileKeep Collection"
+            self.name = "FileKeep Collection (" + os.path.abspath(self.path) + ")"
             self.directory = Directory()
             self.exists = False
 
@@ -121,18 +126,27 @@ class Collection:
     def size(self):
         return self.directory.size()
 
-    def create_from_path(self):
+    def create_from_path(self, quiet=False):
         dirs = {
             self.path: self.directory
         }
+        cd = 1
+        cf = 0
         for dirpath, dirnames, filenames in os.walk(self.path):
             d = dirs[dirpath]
             for dirname in dirnames:
                 path = os.path.join(dirpath, dirname)
                 d.entries[dirname] = dirs[path] = Directory.from_file(path)
+                cd += 1
+            if not quiet:
+                print(dirpath)
             for filename in filenames:
                 path = os.path.join(dirpath, filename)
+                if not quiet:
+                    print("  " + filename)
                 d.entries[filename] = File.from_file(path, True)
+                cf += 1
+        return (cd, cf)
 
     def print_sha1sum(self):
         self.directory.print_sha1sum("")

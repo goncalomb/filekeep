@@ -148,5 +148,50 @@ class Collection:
                 cf += 1
         return (cd, cf)
 
+    def verify(self):
+        dirs = {
+            self.path: self.directory
+        }
+        result = True
+        for dirpath, dirnames, filenames in os.walk(self.path):
+            if not dirpath in dirs:
+                print("extra directory '" + dirpath + "'")
+                result = False
+                continue
+            d = dirs[dirpath]
+            entries = d.entries.copy()
+            for dirname in dirnames:
+                path = os.path.join(dirpath, dirname)
+                if dirname in entries and isinstance(entries[dirname], Directory):
+                    dirs[path] = entries[dirname]
+                    del entries[dirname]
+            if dirpath != '.' and d.mtime != os.path.getmtime(dirpath):
+                print("'" + dirpath + "' (directory) different mtime")
+                result = False
+            for filename in filenames:
+                path = os.path.join(dirpath, filename)
+                if filename in entries and isinstance(entries[filename], File):
+                    if entries[filename].mtime != os.path.getmtime(path):
+                        print("'" + path + "' different mtime")
+                        result = False
+                    if entries[filename].size != os.path.getsize(path):
+                        print("'" + path + "' different size")
+                        result = False
+                    elif entries[filename].sha1 != sha1_file(path):
+                        print("'" + path + "' different sha1")
+                        result = False
+                    del entries[filename]
+                elif path != "./filekeep.xml":
+                    print("extra file '" + path + "'")
+                    result = False
+            for e in entries.values():
+                result = False
+                path = os.path.join(dirpath, e.name)
+                if isinstance(e, Directory):
+                    print("missing directory '" + path + "'")
+                else:
+                    print("missing file '" + path + "'")
+        return result
+
     def print_sha1sum(self):
         self.directory.print_sha1sum("")

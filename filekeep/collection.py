@@ -148,7 +148,8 @@ class Collection:
                 cf += 1
         return (cd, cf)
 
-    def verify(self):
+    def verify_and_touch(self, touch=False):
+        paths_to_touch = []
         dirs = {
             self.path: self.directory
         }
@@ -157,33 +158,56 @@ class Collection:
             if not dirpath in dirs:
                 print("extra directory '" + dirpath + "'")
                 result = False
+                if touch:
+                    print("aborting touch")
+                    return False
                 continue
+
             d = dirs[dirpath]
             entries = d.entries.copy()
+
             for dirname in dirnames:
                 path = os.path.join(dirpath, dirname)
                 if dirname in entries and isinstance(entries[dirname], Directory):
                     dirs[path] = entries[dirname]
                     del entries[dirname]
+
             if dirpath != '.' and d.mtime != os.path.getmtime(dirpath):
                 print("'" + dirpath + "' (directory) different mtime")
-                result = False
+                if touch:
+                    paths_to_touch.append((dirpath, d.mtime))
+                else:
+                    result = False
+
             for filename in filenames:
                 path = os.path.join(dirpath, filename)
                 if filename in entries and isinstance(entries[filename], File):
                     if entries[filename].mtime != os.path.getmtime(path):
                         print("'" + path + "' different mtime")
-                        result = False
+                        if touch:
+                            paths_to_touch.append((path, entries[filename].mtime))
+                        else:
+                            result = False
                     if entries[filename].size != os.path.getsize(path):
                         print("'" + path + "' different size")
                         result = False
+                        if touch:
+                            print("aborting touch")
+                            return False
                     elif entries[filename].sha1 != sha1_file(path):
                         print("'" + path + "' different sha1")
                         result = False
+                        if touch:
+                            print("aborting touch")
+                            return False
                     del entries[filename]
                 elif path != "./filekeep.xml":
                     print("extra file '" + path + "'")
                     result = False
+                    if touch:
+                        print("aborting touch")
+                        return False
+
             for e in entries.values():
                 result = False
                 path = os.path.join(dirpath, e.name)
@@ -191,6 +215,15 @@ class Collection:
                     print("missing directory '" + path + "'")
                 else:
                     print("missing file '" + path + "'")
+
+        if touch:
+            if paths_to_touch:
+                print("touching")
+                for (path, mtime) in paths_to_touch:
+                    os.utime(path, (mtime, mtime))
+            else:
+                print("nothing to touch")
+
         return result
 
     def print_sha1sum(self):

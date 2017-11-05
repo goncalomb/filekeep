@@ -10,6 +10,7 @@ def execute():
     parser_create.add_argument('--quiet', action="store_true")
     parser_create.add_argument('--name')
     parser_verify = subparsers.add_parser('verify', description='verify collection')
+    parser_touch = subparsers.add_parser('touch', description='touch collection (fix mtimes)')
     parser_export = subparsers.add_parser('export', description='export data')
     parser_export.add_argument('--format', default='sha1sum', choices=['sha1sum'], help='export format')
 
@@ -33,7 +34,9 @@ def execute():
                 print(str(cd) + " directories with " + str(cf) + " files")
                 print("done")
     elif args.command == 'verify' and col.exists:
-        exit(0 if col.verify() else 1)
+        exit(0 if col.verify_and_touch() else 1)
+    elif args.command == 'touch' and col.exists:
+        exit(0 if col.verify_and_touch(True) else 1)
     elif args.command == 'export' and col.exists:
         if args.format == 'sha1sum':
             col.print_sha1sum()

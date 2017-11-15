@@ -14,7 +14,8 @@ def sha1_file(path):
 class File:
     @staticmethod
     def from_file(path, calculate_sha1=False):
-        f = File(os.path.basename(path), os.path.getsize(path), os.path.getmtime(path))
+        stat = os.lstat(path)
+        f = File(os.path.basename(path), stat.st_size, stat.st_mtime_ns)
         f.path = path
         if calculate_sha1:
             f.sha1 = sha1_file(path)
@@ -22,7 +23,7 @@ class File:
 
     @staticmethod
     def from_xml(el):
-        f = File(el.get("name"), int(el.get("size")), float(el.get("mtime")))
+        f = File(el.get("name"), int(el.get("size")), int(el.get("mtime")))
         f.sha1 = el.get("sha1")
         return f
 
@@ -49,13 +50,13 @@ class File:
 class Directory:
     @staticmethod
     def from_file(path):
-        d = Directory(os.path.basename(path), os.path.getmtime(path))
+        d = Directory(os.path.basename(path), os.lstat(path).st_mtime_ns)
         d.path = path
         return d
 
     @staticmethod
     def from_xml(el):
-        d = Directory(el.get("name"), float(el.get("mtime") or "0"))
+        d = Directory(el.get("name"), int(el.get("mtime") or "0"))
         for e in el:
             if e.tag == "directory":
                 ee = Directory.from_xml(e)
@@ -172,7 +173,7 @@ class Collection:
                     dirs[path] = entries[dirname]
                     del entries[dirname]
 
-            if dirpath != '.' and d.mtime != os.path.getmtime(dirpath):
+            if dirpath != '.' and d.mtime != os.lstat(dirpath).st_mtime_ns:
                 print("'" + dirpath + "' (directory) different mtime")
                 if touch:
                     paths_to_touch.append((dirpath, d.mtime))
@@ -182,13 +183,14 @@ class Collection:
             for filename in filenames:
                 path = os.path.join(dirpath, filename)
                 if filename in entries and isinstance(entries[filename], File):
-                    if entries[filename].mtime != os.path.getmtime(path):
+                    stat = os.lstat(path)
+                    if entries[filename].mtime != stat.st_mtime_ns:
                         print("'" + path + "' different mtime")
                         if touch:
                             paths_to_touch.append((path, entries[filename].mtime))
                         else:
                             result = False
-                    if entries[filename].size != os.path.getsize(path):
+                    if entries[filename].size != stat.st_size:
                         print("'" + path + "' different size")
                         result = False
                         if touch:
@@ -220,7 +222,7 @@ class Collection:
             if paths_to_touch:
                 print("touching")
                 for (path, mtime) in paths_to_touch:
-                    os.utime(path, (mtime, mtime))
+                    os.utime(path, ns=(mtime, mtime))
             else:
                 print("nothing to touch")
 

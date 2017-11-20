@@ -11,6 +11,11 @@ def sha1_file(path):
             else:
                 return sha1.hexdigest()
 
+def compare_times(a, b, flexible):
+    if flexible:
+        return a//1000000000 == b//1000000000
+    return a == b
+
 class File:
     @staticmethod
     def from_file(path, calculate_sha1=False):
@@ -149,7 +154,7 @@ class Collection:
                 cf += 1
         return (cd, cf)
 
-    def verify_and_touch(self, touch=False):
+    def verify_and_touch(self, touch=False, flexible_times=False, ignore_times=False):
         paths_to_touch = []
         dirs = {
             self.path: self.directory
@@ -173,7 +178,7 @@ class Collection:
                     dirs[path] = entries[dirname]
                     del entries[dirname]
 
-            if dirpath != '.' and d.mtime != os.lstat(dirpath).st_mtime_ns:
+            if dirpath != '.' and (touch or not ignore_times) and not compare_times(d.mtime, os.lstat(dirpath).st_mtime_ns, flexible_times):
                 print("'" + dirpath + "' (directory) different mtime")
                 if touch:
                     paths_to_touch.append((dirpath, d.mtime))
@@ -184,7 +189,7 @@ class Collection:
                 path = os.path.join(dirpath, filename)
                 if filename in entries and isinstance(entries[filename], File):
                     stat = os.lstat(path)
-                    if entries[filename].mtime != stat.st_mtime_ns:
+                    if (touch or not ignore_times) and not compare_times(entries[filename].mtime, stat.st_mtime_ns, flexible_times):
                         print("'" + path + "' different mtime")
                         if touch:
                             paths_to_touch.append((path, entries[filename].mtime))

@@ -1,13 +1,15 @@
 import os, hashlib, collections
-from filekeep import xml
+from filekeep import logger, xml
 
-def sha1_file(path):
+def sha1_file(path, logger=None):
     sha1 = hashlib.sha1()
     with open(path, "rb", buffering=0) as f:
         while True:
-            data = f.read()
+            data = f.read(1048576)
             if data:
                 sha1.update(data)
+                if logger:
+                    logger.progress(len(data))
             else:
                 return sha1.hexdigest()
 
@@ -118,6 +120,8 @@ class Collection:
             self.directory = Directory()
             self.exists = False
 
+        self.logger = logger.create(self.size())
+
     def write_data(self):
         root = xml.ET.Element("collection")
         name = xml.ET.Element("name")
@@ -162,10 +166,10 @@ class Collection:
         result = True
         for dirpath, dirnames, filenames in os.walk(self.path):
             if not dirpath in dirs:
-                print("extra directory '" + dirpath + "'")
+                self.logger.error("extra directory '" + dirpath + "'")
                 result = False
                 if touch:
-                    print("aborting touch")
+                    self.logger.print("aborting touch")
                     return False
                 continue
 
@@ -179,7 +183,7 @@ class Collection:
                     del entries[dirname]
 
             if dirpath != '.' and (touch or not ignore_times) and not compare_times(d.mtime, os.lstat(dirpath).st_mtime_ns, flexible_times):
-                print("'" + dirpath + "' (directory) different mtime")
+                self.logger.error("'" + dirpath + "' (directory) different mtime")
                 if touch:
                     paths_to_touch.append((dirpath, d.mtime))
                 else:
@@ -190,46 +194,48 @@ class Collection:
                 if filename in entries and isinstance(entries[filename], File):
                     stat = os.lstat(path)
                     if (touch or not ignore_times) and not compare_times(entries[filename].mtime, stat.st_mtime_ns, flexible_times):
-                        print("'" + path + "' different mtime")
+                        self.logger.error("'" + path + "' different mtime")
                         if touch:
                             paths_to_touch.append((path, entries[filename].mtime))
                         else:
                             result = False
                     if entries[filename].size != stat.st_size:
-                        print("'" + path + "' different size")
+                        self.logger.error("'" + path + "' different size")
+                        self.logger.progress(entries[filename].size)
                         result = False
                         if touch:
-                            print("aborting touch")
+                            self.logger.print("aborting touch")
                             return False
-                    elif entries[filename].sha1 != sha1_file(path):
-                        print("'" + path + "' different sha1")
+                    elif entries[filename].sha1 != sha1_file(path, self.logger):
+                        self.logger.error("'" + path + "' different sha1")
                         result = False
                         if touch:
-                            print("aborting touch")
+                            self.logger.print("aborting touch")
                             return False
                     del entries[filename]
                 elif path != "./filekeep.xml":
-                    print("extra file '" + path + "'")
+                    self.logger.error("extra file '" + path + "'")
                     result = False
                     if touch:
-                        print("aborting touch")
+                        self.logger.print("aborting touch")
                         return False
 
             for e in entries.values():
                 result = False
                 path = os.path.join(dirpath, e.name)
                 if isinstance(e, Directory):
-                    print("missing directory '" + path + "'")
+                    self.logger.error("missing directory '" + path + "'")
                 else:
-                    print("missing file '" + path + "'")
+                    self.logger.error("missing file '" + path + "'")
+                    self.logger.progress(e.size)
 
         if touch:
             if paths_to_touch:
-                print("touching")
+                self.logger.print("touching")
                 for (path, mtime) in paths_to_touch:
                     os.utime(path, ns=(mtime, mtime))
             else:
-                print("nothing to touch")
+                self.logger.print("nothing to touch")
 
         return result
 

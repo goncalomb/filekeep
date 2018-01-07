@@ -11,11 +11,10 @@ def execute():
     parser_create.add_argument('--name')
 
     parser_verify = subparsers.add_parser('verify', description='verify collection')
-    parser_verify.add_argument('--ignore-mtime', action="store_true", help='don\'t compare mtimes')
+    group_times = parser_verify.add_mutually_exclusive_group()
+    group_times.add_argument('--touch', action="store_true", help='touch files (fix mtimes)')
+    group_times.add_argument('--ignore-mtime', action="store_true", help='don\'t compare mtimes')
     parser_verify.add_argument('--flexible-mtime', action="store_true", help='ignore nanosecond precision when comparing mtimes')
-
-    parser_touch = subparsers.add_parser('touch', description='touch collection (fix mtimes)')
-    parser_touch.add_argument('--flexible-mtime', action="store_true", help='ignore nanosecond precision when comparing mtimes')
 
     parser_export = subparsers.add_parser('export', description='export data')
     parser_export.add_argument('--format', default='sha1sum', choices=['sha1sum'], help='export format')
@@ -40,9 +39,10 @@ def execute():
                 print(str(cd) + " directories with " + str(cf) + " files")
                 print("done")
     elif args.command == 'verify' and col.exists:
-        exit(0 if col.verify_and_touch(flexible_times=args.flexible_mtime, ignore_times=args.ignore_mtime) else 1)
-    elif args.command == 'touch' and col.exists:
-        exit(0 if col.verify_and_touch(True, args.flexible_mtime) else 1)
+        if args.touch:
+            exit(0 if col.verify(True, args.flexible_mtime) else 1)
+        else:
+            exit(0 if col.verify(flexible_times=args.flexible_mtime, ignore_times=args.ignore_mtime) else 1)
     elif args.command == 'export' and col.exists:
         if args.format == 'sha1sum':
             col.print_sha1sum()

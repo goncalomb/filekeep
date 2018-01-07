@@ -158,7 +158,7 @@ class Collection:
                 cf += 1
         return (cd, cf)
 
-    def verify_and_touch(self, touch=False, flexible_times=False, ignore_times=False):
+    def verify(self, touch=False, flexible_times=False, ignore_times=False):
         paths_to_touch = []
         dirs = {
             self.path: self.directory

@@ -5,7 +5,7 @@ def sha1_file(path, logger=None):
     sha1 = hashlib.sha1()
     with open(path, "rb", buffering=0) as f:
         while True:
-            data = f.read(1048576)
+            data = f.read(65536)
             if data:
                 sha1.update(data)
                 if logger:

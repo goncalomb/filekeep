@@ -158,7 +158,7 @@ class Collection:
                 cf += 1
         return (cd, cf)
 
-    def verify(self, touch=False, flexible_times=False, ignore_times=False):
+    def verify(self, fast=False, touch=False, flexible_times=False, ignore_times=False):
         paths_to_touch = []
         dirs = {
             self.path: self.directory
@@ -206,7 +206,7 @@ class Collection:
                         if touch:
                             self.logger.print("aborting touch")
                             return False
-                    elif entries[filename].sha1 != sha1_file(path, self.logger):
+                    elif not fast and entries[filename].sha1 != sha1_file(path, self.logger):
                         self.logger.error("'" + path + "' different sha1")
                         result = False
                         if touch:

@@ -12,6 +12,7 @@ def execute():
 
     parser_verify = subparsers.add_parser('verify', description='verify collection')
     group_times = parser_verify.add_mutually_exclusive_group()
+    group_times.add_argument('--fast', action="store_true", help='fast verify (skips checksum)')
     group_times.add_argument('--touch', action="store_true", help='touch files (fix mtimes)')
     group_times.add_argument('--ignore-mtime', action="store_true", help='don\'t compare mtimes')
     parser_verify.add_argument('--flexible-mtime', action="store_true", help='ignore nanosecond precision when comparing mtimes')
@@ -39,10 +40,7 @@ def execute():
                 print(str(cd) + " directories with " + str(cf) + " files")
                 print("done")
     elif args.command == 'verify' and col.exists:
-        if args.touch:
-            exit(0 if col.verify(True, args.flexible_mtime) else 1)
-        else:
-            exit(0 if col.verify(flexible_times=args.flexible_mtime, ignore_times=args.ignore_mtime) else 1)
+        exit(0 if col.verify(args.fast, args.touch, flexible_times=args.flexible_mtime, ignore_times=args.ignore_mtime) else 1)
     elif args.command == 'export' and col.exists:
         if args.format == 'sha1sum':
             col.print_sha1sum()

@@ -1,4 +1,4 @@
-import argparse
+import sys, argparse
 
 from filekeep.collection import Collection
 
@@ -51,4 +51,8 @@ def execute():
         print("collection not created")
 
 if __name__ == "__main__":
-    execute()
+    try:
+        execute()
+    except KeyboardInterrupt:
+        print("\r\033[K", end="\r", file=sys.stderr)
+        exit(1)

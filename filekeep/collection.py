@@ -158,76 +158,88 @@ class Collection:
                 cf += 1
         return (cd, cf)
 
-    def verify(self, fast=False, touch=False, flexible_times=False, ignore_times=False):
+    def verify(self, fast=False, touch=False, flexible_times=False):
         paths_to_touch = []
+
+        # directory entries referenced by relative path
         dirs = {
             self.path: self.directory
         }
+
+        # function return value
         result = True
+
         for dirpath, dirnames, filenames in os.walk(self.path):
             if not dirpath in dirs:
-                self.logger.error("extra directory '" + dirpath + "'")
-                result = False
-                if touch:
-                    self.logger.print("aborting touch")
-                    return False
                 continue
 
+            found_error = False
             d = dirs[dirpath]
             entries = d.entries.copy()
 
+            # process directories
             for dirname in dirnames:
                 path = os.path.join(dirpath, dirname)
                 if dirname in entries and isinstance(entries[dirname], Directory):
                     dirs[path] = entries[dirname]
                     del entries[dirname]
-
-            if dirpath != '.' and (touch or not ignore_times) and not compare_times(d.mtime, os.lstat(dirpath).st_mtime_ns, flexible_times):
-                self.logger.error("'" + dirpath + "' (directory) different mtime")
-                if touch:
-                    paths_to_touch.append((dirpath, d.mtime))
                 else:
-                    result = False
+                    self.logger.error("extra directory '" + path + "'")
+                    found_error = True
 
+            # process files
             for filename in filenames:
                 path = os.path.join(dirpath, filename)
                 if filename in entries and isinstance(entries[filename], File):
                     stat = os.lstat(path)
-                    if (touch or not ignore_times) and not compare_times(entries[filename].mtime, stat.st_mtime_ns, flexible_times):
+                    needs_touch = False
+
+                    if not compare_times(entries[filename].mtime, stat.st_mtime_ns, flexible_times):
                         self.logger.error("'" + path + "' different mtime")
                         if touch:
-                            paths_to_touch.append((path, entries[filename].mtime))
+                            needs_touch = True
                         else:
-                            result = False
+                            found_error = True
+
                     if entries[filename].size != stat.st_size:
                         self.logger.error("'" + path + "' different size")
                         self.logger.progress(entries[filename].size)
-                        result = False
-                        if touch:
-                            self.logger.print("aborting touch")
-                            return False
-                    elif not fast and entries[filename].sha1 != sha1_file(path, self.logger):
+                        found_error = True
+                    elif (not fast or needs_touch) and entries[filename].sha1 != sha1_file(path, self.logger):
                         self.logger.error("'" + path + "' different sha1")
-                        result = False
-                        if touch:
-                            self.logger.print("aborting touch")
-                            return False
+                        found_error = True
+                    elif needs_touch:
+                        paths_to_touch.append((path, entries[filename].mtime))
+                    elif fast:
+                        self.logger.progress(entries[filename].size)
+
                     del entries[filename]
+
                 elif path != "./filekeep.xml":
                     self.logger.error("extra file '" + path + "'")
-                    result = False
-                    if touch:
-                        self.logger.print("aborting touch")
-                        return False
+                    found_error = True
 
+            # handle missing entries
             for e in entries.values():
-                result = False
+                found_error = True
                 path = os.path.join(dirpath, e.name)
                 if isinstance(e, Directory):
                     self.logger.error("missing directory '" + path + "'")
+                    self.logger.progress(e.size())
                 else:
                     self.logger.error("missing file '" + path + "'")
                     self.logger.progress(e.size)
+
+            # process directory
+            if dirpath != '.' and not compare_times(d.mtime, os.lstat(dirpath).st_mtime_ns, flexible_times):
+                self.logger.error("'" + dirpath + "' (directory) different mtime")
+                if touch and not found_error:
+                    paths_to_touch.append((dirpath, d.mtime))
+                else:
+                    result = False
+
+            if found_error:
+                result = False
 
         if touch:
             if paths_to_touch:

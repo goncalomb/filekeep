@@ -83,7 +83,7 @@ class Directory:
         el = xml.ET.Element("directory")
         if self.name != None:
             el.set("name", self.name)
-            el.set("mtime", str(self.mtime))
+        el.set("mtime", str(self.mtime))
         for e in self.entries.values():
             el.append(e.to_xml())
         return el
@@ -108,7 +108,10 @@ class Directory:
 class Collection:
     def __init__(self, path):
         self.path = path
-        self.path_xml = os.path.join(self.path, "filekeep.xml")
+        if self.path == '.':
+            self.path_xml = os.path.join(self.path, 'filekeep.xml')
+        else:
+            self.path_xml = self.path + '.filekeep.xml'
 
         if os.path.isfile(self.path_xml):
             root = xml.read(self.path_xml)
@@ -116,8 +119,8 @@ class Collection:
             self.directory = Directory.from_xml(root.find("directory"))
             self.exists = True
         else:
-            self.name = "FileKeep Collection (" + os.path.abspath(self.path) + ")"
-            self.directory = Directory()
+            self.name = os.path.abspath(self.path) if self.path == '.' else self.path
+            self.directory = Directory(None, os.lstat(path).st_mtime_ns)
             self.exists = False
 
         self.logger = logger.create(self.size())

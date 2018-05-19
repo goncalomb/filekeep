@@ -1,9 +1,10 @@
-import sys, argparse
+import sys, os, argparse
 
 from filekeep.collection import Collection
 
 def execute():
     parser = argparse.ArgumentParser(prog='filekeep')
+    parser.add_argument('-d', metavar='directory', help='directory to use')
     subparsers = parser.add_subparsers(title='commands', dest='command')
 
     parser_create = subparsers.add_parser('create', description='create collection')
@@ -20,7 +21,17 @@ def execute():
 
     args = parser.parse_args()
 
-    col = Collection(".")
+    d = '.'
+    if args.d:
+        d = os.path.normpath(args.d)
+        if os.path.dirname(d):
+            print("directory '" + d + "' invalid, must be a direct descendant of current path", file=sys.stdout)
+            exit(1)
+        elif not os.path.isdir(args.d):
+            print("directory '" + d + "' not found", file=sys.stdout)
+            exit(1)
+
+    col = Collection(d)
 
     if args.command == 'create':
         if col.exists:

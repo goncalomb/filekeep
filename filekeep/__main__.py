@@ -16,6 +16,8 @@ def execute():
     parser_verify.add_argument('--touch', action="store_true", help='touch files (fix mtimes)')
     parser_verify.add_argument('--flexible-mtime', action="store_true", help='ignore nanosecond precision when comparing mtimes')
 
+    subparsers.add_parser('duplicates', description='find duplicates')
+
     parser_export = subparsers.add_parser('export', description='export data')
     parser_export.add_argument('--format', default='sha1sum', choices=['sha1sum'], help='export format')
 
@@ -50,6 +52,11 @@ def execute():
                 print("done")
     elif args.command == 'verify' and col.exists:
         exit(0 if col.verify(args.fast, args.touch, args.flexible_mtime) else 1)
+    elif args.command == 'duplicates' and col.exists:
+        for sha1, paths in col.find_duplicates().items():
+            print(sha1)
+            for path in paths:
+                print('  ' + path)
     elif args.command == 'export' and col.exists:
         if args.format == 'sha1sum':
             col.print_sha1sum()

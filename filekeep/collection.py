@@ -254,5 +254,33 @@ class Collection:
 
         return result
 
+    def all_files(self):
+        def func(d, path=''):
+            if d.name != None:
+                path += d.name + '/'
+            for entry in d.entries.values():
+                if isinstance(entry, Directory):
+                    for a, b in func(entry, path):
+                        yield a, b
+                else:
+                    yield path + entry.name, entry
+        return func(self.directory)
+
+    def all_files_by_sha1(self):
+        ret = {}
+        for path, entry in self.all_files():
+            if entry.sha1 in ret:
+                ret[entry.sha1].append(path)
+            else:
+                ret[entry.sha1] = [path]
+        return ret
+
+    def find_duplicates(self):
+        dups = {}
+        for sha1, paths in self.all_files_by_sha1().items():
+            if len(paths) > 1:
+                dups[sha1] = paths
+        return dups
+
     def print_sha1sum(self):
         self.directory.print_sha1sum("")

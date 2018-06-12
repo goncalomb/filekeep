@@ -1,4 +1,4 @@
-import os, hashlib, collections
+import os, stat, hashlib, collections
 from filekeep import logger, xml
 
 def sha1_file(path, logger=None):
@@ -21,8 +21,8 @@ def compare_times(a, b, flexible):
 class File:
     @staticmethod
     def from_file(path, calculate_sha1=False):
-        stat = os.lstat(path)
-        f = File(os.path.basename(path), stat.st_size, stat.st_mtime_ns)
+        st = os.lstat(path)
+        f = File(os.path.basename(path), st.st_size, st.st_mtime_ns, stat.S_IMODE(st.st_mode))
         f.path = path
         if calculate_sha1:
             f.sha1 = sha1_file(path)
@@ -30,21 +30,23 @@ class File:
 
     @staticmethod
     def from_xml(el):
-        f = File(el.get("name"), int(el.get("size")), int(el.get("mtime")))
+        f = File(el.get("name"), int(el.get("size")), int(el.get("mtime")), int(el.get("mode") or 436))
         f.sha1 = el.get("sha1")
         return f
 
-    def __init__(self, name, size, mtime):
+    def __init__(self, name, size, mtime, mode):
         self.path = None
         self.name = name
         self.size = size
         self.mtime = mtime
+        self.mode = mode
         self.sha1 = ""
 
     def to_xml(self):
         el = xml.ET.Element("file")
         el.set("name", self.name)
         el.set("mtime", str(self.mtime))
+        el.set("mode", str(self.mode))
         el.set("size", str(self.size))
         el.set("sha1", self.sha1)
         return el
@@ -57,13 +59,14 @@ class File:
 class Directory:
     @staticmethod
     def from_file(path):
-        d = Directory(os.path.basename(path), os.lstat(path).st_mtime_ns)
+        st = os.lstat(path)
+        d = Directory(os.path.basename(path), st.st_mtime_ns, stat.S_IMODE(st.st_mode))
         d.path = path
         return d
 
     @staticmethod
     def from_xml(el):
-        d = Directory(el.get("name"), int(el.get("mtime") or "0"))
+        d = Directory(el.get("name"), int(el.get("mtime") or 0), int(el.get("mode") or 509))
         for e in el:
             if e.tag == "directory":
                 ee = Directory.from_xml(e)
@@ -73,10 +76,11 @@ class Directory:
                 d.entries[ee.name] = ee
         return d
 
-    def __init__(self, name=None, mtime=0):
+    def __init__(self, name=None, mtime=0, mode=509):
         self.path = None
         self.name = name
         self.mtime = mtime
+        self.mode = mode
         self.entries = collections.OrderedDict()
 
     def to_xml(self):
@@ -84,6 +88,7 @@ class Directory:
         if self.name != None:
             el.set("name", self.name)
         el.set("mtime", str(self.mtime))
+        el.set("mode", str(self.mode))
         for e in self.entries.values():
             el.append(e.to_xml())
         return el
@@ -194,17 +199,23 @@ class Collection:
             for filename in filenames:
                 path = os.path.join(dirpath, filename)
                 if filename in entries and isinstance(entries[filename], File):
-                    stat = os.lstat(path)
+                    st = os.lstat(path)
                     needs_touch = False
 
-                    if not compare_times(entries[filename].mtime, stat.st_mtime_ns, flexible_times):
+                    if not compare_times(entries[filename].mtime, st.st_mtime_ns, flexible_times):
                         self.logger.error("'" + path + "' different mtime")
                         if touch:
                             needs_touch = True
                         else:
                             found_error = True
+                    if entries[filename].mode != stat.S_IMODE(st.st_mode):
+                        self.logger.error("'{}' different mode ({} != {})".format(path, str(stat.S_IMODE(st.st_mode)), str(entries[filename].mode)))
+                        if touch:
+                            needs_touch = True
+                        else:
+                            found_error = True
 
-                    if entries[filename].size != stat.st_size:
+                    if entries[filename].size != st.st_size:
                         self.logger.error("'" + path + "' different size")
                         self.logger.progress(entries[filename].size)
                         found_error = True
@@ -212,7 +223,7 @@ class Collection:
                         self.logger.error("'" + path + "' different sha1")
                         found_error = True
                     elif needs_touch:
-                        paths_to_touch.append((path, entries[filename].mtime))
+                        paths_to_touch.append((path, entries[filename]))
                     elif fast:
                         self.logger.progress(entries[filename].size)
 
@@ -234,12 +245,20 @@ class Collection:
                     self.logger.progress(e.size)
 
             # process directory
-            if dirpath != '.' and not compare_times(d.mtime, os.lstat(dirpath).st_mtime_ns, flexible_times):
-                self.logger.error("'" + dirpath + "' (directory) different mtime")
-                if touch and not found_error:
-                    paths_to_touch.append((dirpath, d.mtime))
-                else:
-                    result = False
+            if dirpath != '.':
+                st = os.lstat(dirpath)
+                if not compare_times(d.mtime, st.st_mtime_ns, flexible_times):
+                    self.logger.error("'" + dirpath + "' (directory) different mtime")
+                    if touch and not found_error:
+                        paths_to_touch.append((dirpath, d))
+                    else:
+                        result = False
+                if d.mode != stat.S_IMODE(st.st_mode):
+                    self.logger.error("'{}' (directory) different mode ({} != {})".format(dirpath, str(stat.S_IMODE(st.st_mode)), str(d.mode)))
+                    if touch and not found_error:
+                        paths_to_touch.append((dirpath, d))
+                    else:
+                        result = False
 
             if found_error:
                 result = False
@@ -247,8 +266,9 @@ class Collection:
         if touch:
             if paths_to_touch:
                 self.logger.print("touching")
-                for (path, mtime) in paths_to_touch:
-                    os.utime(path, ns=(mtime, mtime))
+                for (path, entry) in paths_to_touch:
+                    os.utime(path, ns=(entry.mtime, entry.mtime))
+                    os.chmod(path, entry.mode)
             else:
                 self.logger.print("nothing to touch")
 

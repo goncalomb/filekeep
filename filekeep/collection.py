@@ -125,7 +125,8 @@ class Collection:
             self.exists = True
         else:
             self.name = os.path.abspath(self.path) if self.path == '.' else self.path
-            self.directory = Directory(None, os.lstat(path).st_mtime_ns)
+            st = os.lstat(path)
+            self.directory = Directory(os.path.basename(path), st.st_mtime_ns, stat.S_IMODE(st.st_mode))
             self.exists = False
 
         self.logger = logger.create(self.size())

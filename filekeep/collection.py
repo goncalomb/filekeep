@@ -30,7 +30,7 @@ class File:
 
     @staticmethod
     def from_xml(el):
-        f = File(el.get("name"), int(el.get("size")), int(el.get("mtime")), int(el.get("mode") or 436))
+        f = File(el.get("name"), int(el.get("size")), int(el.get("mtime")), int(el.get("mode") or 0))
         f.sha1 = el.get("sha1")
         return f
 
@@ -66,7 +66,7 @@ class Directory:
 
     @staticmethod
     def from_xml(el):
-        d = Directory(el.get("name"), int(el.get("mtime") or 0), int(el.get("mode") or 509))
+        d = Directory(el.get("name"), int(el.get("mtime") or 0), int(el.get("mode") or 0))
         for e in el:
             if e.tag == "directory":
                 ee = Directory.from_xml(e)
@@ -209,7 +209,7 @@ class Collection:
                             needs_touch = True
                         else:
                             found_error = True
-                    if entries[filename].mode != stat.S_IMODE(st.st_mode):
+                    if entries[filename].mode != 0 and entries[filename].mode != stat.S_IMODE(st.st_mode):
                         self.logger.error("'{}' different mode ({} != {})".format(path, str(stat.S_IMODE(st.st_mode)), str(entries[filename].mode)))
                         if touch:
                             needs_touch = True
@@ -254,7 +254,7 @@ class Collection:
                         paths_to_touch.append((dirpath, d))
                     else:
                         result = False
-                if d.mode != stat.S_IMODE(st.st_mode):
+                if d.mode != 0 and d.mode != stat.S_IMODE(st.st_mode):
                     self.logger.error("'{}' (directory) different mode ({} != {})".format(dirpath, str(stat.S_IMODE(st.st_mode)), str(d.mode)))
                     if touch and not found_error:
                         paths_to_touch.append((dirpath, d))
@@ -269,7 +269,8 @@ class Collection:
                 self.logger.print("touching")
                 for (path, entry) in paths_to_touch:
                     os.utime(path, ns=(entry.mtime, entry.mtime))
-                    os.chmod(path, entry.mode)
+                    if entry.mode != 0:
+                        os.chmod(path, entry.mode)
             else:
                 self.logger.print("nothing to touch")
 

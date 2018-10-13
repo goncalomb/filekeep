@@ -1,5 +1,6 @@
 import sys, os, argparse
 
+from filekeep import utils
 from filekeep.collection import Collection
 
 def execute():
@@ -62,7 +63,8 @@ def execute():
             col.print_sha1sum()
     elif col.exists:
         print(col.name)
-        print(str(col.size()) + " bytes")
+        s = col.size()
+        print('{} ({} bytes)'.format(utils.format_size(s), s))
     else:
         print("collection not created")
 

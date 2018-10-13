@@ -1,5 +1,7 @@
 import sys
 
+from filekeep import utils
+
 class BasicLogger:
     def __init__(self, total):
         pass
@@ -20,7 +22,7 @@ class LoggerWithProgress:
         self.value += value
         if self.total and (self.throttle%500 == 0 or self.value == self.total):
             p = self.value*100/self.total
-            print("\r\033[K  " + "{0:.2f}".format(p) + "% (" + str(self.value) + "/" + str(self.total) + ")", end="\r", file=sys.stderr)
+            print("\r\033[K  " + "{0:.2f}".format(p) + "% (" + utils.format_size(self.value) + "/" + utils.format_size(self.total) + ")", end="\r", file=sys.stderr)
             if self.value == self.total:
                 print(file=sys.stderr)
         self.throttle += 1

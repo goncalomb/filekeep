@@ -1,12 +1,21 @@
 # filekeep
 
-Verify integrity and track changes of files.
+Verify integrity and track file changes.
 
 ## Install / Uninstall
 
     # Install
     git clone https://github.com/goncalomb/filekeep.git
-    sudo pip3 install filekeep/
+    pip3 install filekeep/
+
+    # Install for Development (editable)
+    git clone https://github.com/goncalomb/filekeep.git
+    pip3 install -e filekeep/
 
     # Uninstall
-    sudo pip3 uninstall filekeep
+    pip3 uninstall filekeep
+
+
+## License
+
+TBA

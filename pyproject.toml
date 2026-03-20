@@ -1,0 +1,7 @@
+[project]
+name = "filekeep"
+version = "0.0.0"
+authors = [{ name = "Gonçalo MB", email = "me@goncalomb.com" }]
+
+[project.scripts]
+filekeep = "filekeep:main"

@@ -2,19 +2,17 @@
 
 Verify integrity and track file changes.
 
-## Install / Uninstall
+## Setup using pipx
 
-    # Install
+    # install
+    pipx install git+https://github.com/goncalomb/filekeep.git
+
+    # install for development (editable)
     git clone https://github.com/goncalomb/filekeep.git
-    pip3 install filekeep/
+    pipx install -e ./filekeep
 
-    # Install for Development (editable)
-    git clone https://github.com/goncalomb/filekeep.git
-    pip3 install -e filekeep/
-
-    # Uninstall
-    pip3 uninstall filekeep
-
+    # uninstall
+    pipx uninstall filekeep
 
 ## License
 

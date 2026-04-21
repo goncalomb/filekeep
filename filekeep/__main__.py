@@ -2,8 +2,8 @@ import argparse
 import os
 import sys
 
-from filekeep import utils
-from filekeep.collection import Collection
+from .collection import Collection
+from .utils import format_size
 
 
 def get_collection(args, ensure_exists=True):
@@ -11,8 +11,7 @@ def get_collection(args, ensure_exists=True):
     if args.d:
         d = os.path.normpath(args.d)
         if os.path.dirname(d):
-            print("directory '%s' invalid, must be a direct descendant of current path" %
-                  d, file=sys.stdout)
+            print("directory '%s' invalid, must be a direct descendant of current path" % d, file=sys.stdout)
             exit(1)
         elif not os.path.isdir(args.d):
             print("directory '%s' not found" % d, file=sys.stdout)
@@ -34,7 +33,7 @@ def command_none(args):
     col = get_collection(args)
     print(col.name)
     s = col.size()
-    print('{} ({} bytes)'.format(utils.format_size(s), s))
+    print("{} ({} bytes)".format(format_size(s), s))
 
 
 def command_create(args):
@@ -62,7 +61,7 @@ def command_duplicates(args):
     for sha1, paths in col.find_duplicates().items():
         print(sha1)
         for path in paths:
-            print('  ' + path)
+            print("  " + path)
 
 
 def command_export(args):
@@ -79,17 +78,17 @@ def main():
 
     parser_create = subparsers.add_parser(
         'create', description='create collection')
-    parser_create.add_argument('--quiet', action="store_true")
+    parser_create.add_argument('--quiet', action='store_true')
     parser_create.add_argument('--name')
     parser_create.set_defaults(fn=command_create)
 
     parser_verify = subparsers.add_parser(
         'verify', description='verify collection')
     parser_verify.add_argument(
-        '--fast', action="store_true", help='fast verify (skips checksum)')
+        '--fast', action='store_true', help='fast verify (skips checksum)')
     parser_verify.add_argument(
-        '--touch', action="store_true", help='touch files (fix mtimes)')
-    parser_verify.add_argument('--flexible-mtime', action="store_true",
+        '--touch', action='store_true', help='touch files (fix mtimes)')
+    parser_verify.add_argument('--flexible-mtime', action='store_true',
                                help='ignore nanosecond precision when comparing mtimes')
     parser_verify.set_defaults(fn=command_verify)
 
@@ -106,7 +105,7 @@ def main():
     args.fn(args)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:

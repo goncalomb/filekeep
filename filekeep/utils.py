@@ -1,5 +1,6 @@
-from datetime import datetime, timedelta, timezone
 import time
+from datetime import datetime, timedelta, timezone
+
 
 def format_size(size):
     if size >= 1073741824:
@@ -12,6 +13,7 @@ def format_size(size):
         return str(size) + ' byte'
     else:
         return str(size) + ' bytes'
+
 
 def format_timestamp(t):
     dt = datetime.fromtimestamp(t, timezone(timedelta(seconds=-time.altzone)))

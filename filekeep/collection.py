@@ -1,9 +1,14 @@
-import os, stat, hashlib, collections
-from filekeep import logger, xml
+import collections
+import hashlib
+import os
+import stat
+
+from . import logger, xml
+
 
 def sha1_file(path, logger=None):
     sha1 = hashlib.sha1()
-    with open(path, "rb", buffering=0) as f:
+    with open(path, 'rb', buffering=0) as f:
         while True:
             data = f.read(65536)
             if data:
@@ -13,10 +18,12 @@ def sha1_file(path, logger=None):
             else:
                 return sha1.hexdigest()
 
+
 def compare_times(a, b, flexible):
     if flexible:
         return a//1000000000 == b//1000000000
     return a == b
+
 
 class File:
     @staticmethod
@@ -30,8 +37,8 @@ class File:
 
     @staticmethod
     def from_xml(el):
-        f = File(el.get("name"), int(el.get("size")), int(el.get("mtime")), int(el.get("mode") or 0))
-        f.sha1 = el.get("sha1")
+        f = File(el.get('name'), int(el.get('size')), int(el.get('mtime')), int(el.get('mode') or 0))
+        f.sha1 = el.get('sha1')
         return f
 
     def __init__(self, name, size, mtime, mode):
@@ -40,21 +47,22 @@ class File:
         self.size = size
         self.mtime = mtime
         self.mode = mode
-        self.sha1 = ""
+        self.sha1 = ''
 
     def to_xml(self):
-        el = xml.ET.Element("file")
-        el.set("name", self.name)
-        el.set("mtime", str(self.mtime))
-        el.set("mode", str(self.mode))
-        el.set("size", str(self.size))
-        el.set("sha1", self.sha1)
+        el = xml.ET.Element('file')
+        el.set('name', self.name)
+        el.set('mtime', str(self.mtime))
+        el.set('mode', str(self.mode))
+        el.set('size', str(self.size))
+        el.set('sha1', self.sha1)
         return el
 
     def print_sha1sum(self, rel):
         if rel:
-            rel += "/"
+            rel += '/'
         print(self.sha1 + " *" + rel + self.name)
+
 
 class Directory:
     @staticmethod
@@ -66,12 +74,12 @@ class Directory:
 
     @staticmethod
     def from_xml(el):
-        d = Directory(el.get("name"), int(el.get("mtime") or 0), int(el.get("mode") or 0))
+        d = Directory(el.get('name'), int(el.get('mtime') or 0), int(el.get('mode') or 0))
         for e in el:
-            if e.tag == "directory":
+            if e.tag == 'directory':
                 ee = Directory.from_xml(e)
                 d.entries[ee.name] = ee
-            elif e.tag == "file":
+            elif e.tag == 'file':
                 ee = File.from_xml(e)
                 d.entries[ee.name] = ee
         return d
@@ -84,11 +92,11 @@ class Directory:
         self.entries = collections.OrderedDict()
 
     def to_xml(self):
-        el = xml.ET.Element("directory")
-        if self.name != None:
-            el.set("name", self.name)
-        el.set("mtime", str(self.mtime))
-        el.set("mode", str(self.mode))
+        el = xml.ET.Element('directory')
+        if self.name is not None:
+            el.set('name', self.name)
+        el.set('mtime', str(self.mtime))
+        el.set('mode', str(self.mode))
         for e in self.entries.values():
             el.append(e.to_xml())
         return el
@@ -104,11 +112,12 @@ class Directory:
 
     def print_sha1sum(self, rel):
         if rel:
-            rel += "/"
+            rel += '/'
         if self.name:
             rel += self.name
         for e in self.entries.values():
             e.print_sha1sum(rel)
+
 
 class Collection:
     def __init__(self, path):
@@ -120,8 +129,8 @@ class Collection:
 
         if os.path.isfile(self.path_xml):
             root = xml.read(self.path_xml)
-            self.name = root.find("name").text
-            self.directory = Directory.from_xml(root.find("directory"))
+            self.name = root.find('name').text
+            self.directory = Directory.from_xml(root.find('directory'))
             self.exists = True
         else:
             self.name = os.path.abspath(self.path) if self.path == '.' else self.path
@@ -132,8 +141,8 @@ class Collection:
         self.logger = logger.create(self.size())
 
     def write_data(self):
-        root = xml.ET.Element("collection")
-        name = xml.ET.Element("name")
+        root = xml.ET.Element('collection')
+        name = xml.ET.Element('name')
         name.text = self.name
         root.append(name)
         root.append(self.directory.to_xml())
@@ -179,7 +188,7 @@ class Collection:
         result = True
 
         for dirpath, dirnames, filenames in os.walk(self.path):
-            if not dirpath in dirs:
+            if dirpath not in dirs:
                 continue
 
             found_error = False
@@ -210,7 +219,8 @@ class Collection:
                         else:
                             found_error = True
                     if entries[filename].mode != 0 and entries[filename].mode != stat.S_IMODE(st.st_mode):
-                        self.logger.error("'{}' different mode ({} != {})".format(path, str(stat.S_IMODE(st.st_mode)), str(entries[filename].mode)))
+                        self.logger.error("'{}' different mode ({} != {})".format(
+                            path, str(stat.S_IMODE(st.st_mode)), str(entries[filename].mode)))
                         if touch:
                             needs_touch = True
                         else:
@@ -230,7 +240,7 @@ class Collection:
 
                     del entries[filename]
 
-                elif path != "./filekeep.xml":
+                elif path != './filekeep.xml':
                     self.logger.error("extra file '" + path + "'")
                     found_error = True
 
@@ -255,7 +265,8 @@ class Collection:
                     else:
                         result = False
                 if d.mode != 0 and d.mode != stat.S_IMODE(st.st_mode):
-                    self.logger.error("'{}' (directory) different mode ({} != {})".format(dirpath, str(stat.S_IMODE(st.st_mode)), str(d.mode)))
+                    self.logger.error("'{}' (directory) different mode ({} != {})".format(
+                        dirpath, str(stat.S_IMODE(st.st_mode)), str(d.mode)))
                     if touch and not found_error:
                         paths_to_touch.append((dirpath, d))
                     else:
@@ -278,7 +289,7 @@ class Collection:
 
     def all_files(self):
         def func(d, path=''):
-            if d.name != None:
+            if d.name is not None:
                 path += d.name + '/'
             for entry in d.entries.values():
                 if isinstance(entry, Directory):
@@ -305,4 +316,4 @@ class Collection:
         return dups
 
     def print_sha1sum(self):
-        self.directory.print_sha1sum("")
+        self.directory.print_sha1sum('')

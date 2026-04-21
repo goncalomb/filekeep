@@ -3,6 +3,7 @@ import os
 import sys
 
 from .collection import Collection
+from .operations import op_verify
 from .utils import format_size
 
 
@@ -53,7 +54,7 @@ def command_create(args):
 
 def command_verify(args):
     col = get_collection(args)
-    exit(0 if col.verify(args.fast, args.touch, args.flexible_mtime) else 1)
+    exit(0 if op_verify(col, args.fast, args.touch, args.flexible_mtime) else 1)
 
 
 def command_duplicates(args):

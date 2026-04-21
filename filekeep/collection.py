@@ -1,28 +1,9 @@
 import collections
-import hashlib
 import os
 import stat
 
-from . import logger, xml
-
-
-def sha1_file(path, logger=None):
-    sha1 = hashlib.sha1()
-    with open(path, 'rb', buffering=0) as f:
-        while True:
-            data = f.read(65536)
-            if data:
-                sha1.update(data)
-                if logger:
-                    logger.progress(len(data))
-            else:
-                return sha1.hexdigest()
-
-
-def compare_times(a, b, flexible):
-    if flexible:
-        return a//1000000000 == b//1000000000
-    return a == b
+from . import xml
+from .utils import sha1_file
 
 
 class File:
@@ -138,8 +119,6 @@ class Collection:
             self.directory = Directory(os.path.basename(path), st.st_mtime_ns, stat.S_IMODE(st.st_mode))
             self.exists = False
 
-        self.logger = logger.create(self.size())
-
     def write_data(self):
         root = xml.ET.Element('collection')
         name = xml.ET.Element('name')
@@ -175,117 +154,6 @@ class Collection:
                 d.entries[filename] = File.from_file(path, True)
                 cf += 1
         return (cd, cf)
-
-    def verify(self, fast=False, touch=False, flexible_times=False):
-        paths_to_touch = []
-
-        # directory entries referenced by relative path
-        dirs = {
-            self.path: self.directory
-        }
-
-        # function return value
-        result = True
-
-        for dirpath, dirnames, filenames in os.walk(self.path):
-            if dirpath not in dirs:
-                continue
-
-            found_error = False
-            d = dirs[dirpath]
-            entries = d.entries.copy()
-
-            # process directories
-            for dirname in dirnames:
-                path = os.path.join(dirpath, dirname)
-                if dirname in entries and isinstance(entries[dirname], Directory):
-                    dirs[path] = entries[dirname]
-                    del entries[dirname]
-                else:
-                    self.logger.error("extra directory '" + path + "'")
-                    found_error = True
-
-            # process files
-            for filename in filenames:
-                path = os.path.join(dirpath, filename)
-                if filename in entries and isinstance(entries[filename], File):
-                    st = os.lstat(path)
-                    needs_touch = False
-
-                    if not compare_times(entries[filename].mtime, st.st_mtime_ns, flexible_times):
-                        self.logger.error("'" + path + "' different mtime")
-                        if touch:
-                            needs_touch = True
-                        else:
-                            found_error = True
-                    if entries[filename].mode != 0 and entries[filename].mode != stat.S_IMODE(st.st_mode):
-                        self.logger.error("'{}' different mode ({} != {})".format(
-                            path, str(stat.S_IMODE(st.st_mode)), str(entries[filename].mode)))
-                        if touch:
-                            needs_touch = True
-                        else:
-                            found_error = True
-
-                    if entries[filename].size != st.st_size:
-                        self.logger.error("'" + path + "' different size")
-                        self.logger.progress(entries[filename].size)
-                        found_error = True
-                    elif (not fast or needs_touch) and entries[filename].sha1 != sha1_file(path, self.logger):
-                        self.logger.error("'" + path + "' different sha1")
-                        found_error = True
-                    elif needs_touch:
-                        paths_to_touch.append((path, entries[filename]))
-                    elif fast:
-                        self.logger.progress(entries[filename].size)
-
-                    del entries[filename]
-
-                elif path != './filekeep.xml':
-                    self.logger.error("extra file '" + path + "'")
-                    found_error = True
-
-            # handle missing entries
-            for e in entries.values():
-                found_error = True
-                path = os.path.join(dirpath, e.name)
-                if isinstance(e, Directory):
-                    self.logger.error("missing directory '" + path + "'")
-                    self.logger.progress(e.size())
-                else:
-                    self.logger.error("missing file '" + path + "'")
-                    self.logger.progress(e.size)
-
-            # process directory
-            if dirpath != '.':
-                st = os.lstat(dirpath)
-                if not compare_times(d.mtime, st.st_mtime_ns, flexible_times):
-                    self.logger.error("'" + dirpath + "' (directory) different mtime")
-                    if touch and not found_error:
-                        paths_to_touch.append((dirpath, d))
-                    else:
-                        result = False
-                if d.mode != 0 and d.mode != stat.S_IMODE(st.st_mode):
-                    self.logger.error("'{}' (directory) different mode ({} != {})".format(
-                        dirpath, str(stat.S_IMODE(st.st_mode)), str(d.mode)))
-                    if touch and not found_error:
-                        paths_to_touch.append((dirpath, d))
-                    else:
-                        result = False
-
-            if found_error:
-                result = False
-
-        if touch:
-            if paths_to_touch:
-                self.logger.print("touching")
-                for (path, entry) in paths_to_touch:
-                    os.utime(path, ns=(entry.mtime, entry.mtime))
-                    if entry.mode != 0:
-                        os.chmod(path, entry.mode)
-            else:
-                self.logger.print("nothing to touch")
-
-        return result
 
     def all_files(self):
         def func(d, path=''):

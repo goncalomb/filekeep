@@ -41,7 +41,7 @@ class LoggerWithProgress:
         print("\r\033[K\033[93m" + str(obj) + "\033[0m", file=sys.stderr)
 
 
-def create(total):
+def logger_create(total):
     if sys.stderr.isatty():
         return LoggerWithProgress(total)
     else:
